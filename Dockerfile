@@ -7,7 +7,16 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt update -y && apt upgrade -y && useradd -m docker
 RUN apt install -y --no-install-recommends \
-    curl jq build-essential libssl-dev libffi-dev libicu-dev python3 python3-venv python3-dev python3-pip git unzip libasound2t64 pulseaudio
+    curl jq build-essential libssl-dev libffi-dev libicu-dev python3 python3-venv python3-dev python3-pip git unzip libasound2t64 pulseaudio \
+    inetutils-ping wget nodejs
+
+RUN YQ_DOWNLOAD_URL=$(curl -sL -H "Accept: application/vnd.github+json" \
+    https://api.github.com/repos/mikefarah/yq/releases/latest \
+      | jq ".assets[] | select(.name == \"yq_linux_amd64.tar.gz\")" \
+      | jq -r '.browser_download_url') \
+    && curl -s "${YQ_DOWNLOAD_URL}" -L -o /tmp/yq.tar.gz \
+    && tar -xzf /tmp/yq.tar.gz -C /tmp \
+    && mv "/tmp/yq_linux_amd64" /usr/local/bin/yq
 
 RUN cd /home/docker && mkdir actions-runner && cd actions-runner \
     && curl -O -L https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz \

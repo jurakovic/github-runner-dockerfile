@@ -20,9 +20,9 @@ RUN YQ_DOWNLOAD_URL=$(curl -sL -H "Accept: application/vnd.github+json" \
 
 RUN cd /home/docker && mkdir actions-runner && cd actions-runner \
     && curl -O -L https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz \
-    && tar xzf ./actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz
+    && mkdir 1 && tar xzf ./actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz -C ./1
 
-RUN chown -R docker /home/docker && /home/docker/actions-runner/bin/installdependencies.sh
+RUN chown -R docker /home/docker && /home/docker/actions-runner/1/bin/installdependencies.sh
 
 COPY start.sh start.sh
 

@@ -18,11 +18,16 @@ RUN YQ_DOWNLOAD_URL=$(curl -sL -H "Accept: application/vnd.github+json" \
     && tar -xzf /tmp/yq.tar.gz -C /tmp \
     && mv "/tmp/yq_linux_amd64" /usr/local/bin/yq
 
+# download the runner archive but do not extract it into a dynamic directory
 RUN cd /home/docker && mkdir actions-runner && cd actions-runner \
-    && curl -O -L https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz \
-    && mkdir 1 && tar xzf ./actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz -C ./1
+    && curl -O -L https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz
 
-RUN chown -R docker /home/docker && /home/docker/actions-runner/1/bin/installdependencies.sh
+# extract to a temporary directory to run installdependencies.sh
+RUN mkdir /tmp/runner-install \
+    && tar xzf /home/docker/actions-runner/actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz -C /tmp/runner-install \
+    && chown -R docker /home/docker /tmp/runner-install \
+    && /tmp/runner-install/bin/installdependencies.sh \
+    && rm -rf /tmp/runner-install
 
 COPY start.sh start.sh
 

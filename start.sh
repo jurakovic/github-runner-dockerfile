@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# --- Central Log File ---
+CENTRAL_LOG_FILE="/home/docker/actions-runner/runners.log"
+
+# --- Argument Parsing ---
 # Initialize variables from environment
 RUNNER_NAME="${NAME}"
 REPOSITORY="${REPO}"
@@ -35,7 +39,8 @@ if [ "$ACTION" = "remove" ]; then
   REG_TOKEN=$(curl -sS -X POST -H "Authorization: token $ACCESS_TOKEN" -H "Accept: application/vnd.github+json" https://api.github.com/repos/$REPOSITORY/actions/runners/registration-token | jq .token --raw-output)
 
   cd "$RUNNER_DIR"
-  ./config.sh remove --unattended --token "$REG_TOKEN"
+  # This command may fail if the runner is already gone from GitHub, which is fine.
+  ./config.sh remove --unattended --token "$REG_TOKEN" || true
 
   # Clean up the directory
   cd ..
@@ -74,15 +79,15 @@ mkdir "$RUNNER_NAME" && tar xzf ./actions-runner-linux-x64-*.tar.gz -C "./$RUNNE
 ./config.sh --name "$RUNNER_NAME" --url "https://github.com/$REPOSITORY" --token "$REG_TOKEN"
 
 cleanup() {
-  echo "Removing runner $RUNNER_NAME..."
-  ./config.sh remove --unattended --token "$REG_TOKEN"
+  echo "Signal received. Removing runner $RUNNER_NAME..." | tee -a "$CENTRAL_LOG_FILE"
+  # This command may fail if the runner is already gone from GitHub, which is fine.
+  ./config.sh remove --unattended --token "$REG_TOKEN" || true
+  cd /home/docker/actions-runner
+  rm -rf "$RUNNER_NAME"
 }
 
 trap 'cleanup; exit 130' INT
 trap 'cleanup; exit 143' TERM
-
-# Central log file
-CENTRAL_LOG_FILE="/home/docker/actions-runner/runners.log"
 
 # Append all output to the central log file
 ./run.sh >> "$CENTRAL_LOG_FILE" 2>&1 &
@@ -97,3 +102,10 @@ if [ $$ -eq 1 ]; then
 fi
 
 wait $RUNNER_PID
+
+# --- Self-Cleaning Logic ---
+# This code runs after the runner process (run.sh) has exited.
+echo "Runner process for '$RUNNER_NAME' has exited. Cleaning up..." | tee -a "$CENTRAL_LOG_FILE"
+cd /home/docker/actions-runner
+rm -rf "$RUNNER_NAME"
+echo "Local directory for runner '$RUNNER_NAME' has been removed." | tee -a "$CENTRAL_LOG_FILE"

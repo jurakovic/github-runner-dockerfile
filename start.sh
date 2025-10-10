@@ -3,6 +3,31 @@
 # --- Central Log File ---
 CENTRAL_LOG_FILE="/home/docker/actions-runner/runners.log"
 
+# --- Supervisor Logic for PID 1 ---
+# If this is the main container process, it becomes a supervisor that never exits.
+if [ $$ -eq 1 ]; then
+  echo "Supervisor process (PID 1) started." | tee -a "$CENTRAL_LOG_FILE"
+  # Create the log file if it doesn't exist
+  touch "$CENTRAL_LOG_FILE"
+  # Tail the central log file to the container's stdout so 'docker logs' works
+  tail -f "$CENTRAL_LOG_FILE" &
+  
+  # Check if an initial runner should be started.
+  # This is true if arguments were passed OR if the required ENV VARS are set.
+  if [ "$#" -gt 0 ] || [ -n "$NAME" ] || [ -n "$TOKEN" ] || [ -n "$TOKEN" ]; then
+    # Run this script again in the background, but not as PID 1.
+    # Pass along any arguments that were provided. The new process will inherit the environment variables.
+    ./start.sh "$@" &
+  fi
+  
+  # Wait indefinitely for background jobs (like tail -f).
+  # This keeps the container alive.
+  wait
+  exit 0
+fi
+
+# --- Runner Management Logic (for all non-PID 1 processes) ---
+
 # --- Argument Parsing ---
 # Initialize variables from environment
 RUNNER_NAME="${NAME}"
@@ -92,14 +117,6 @@ trap 'cleanup; exit 143' TERM
 # Append all output to the central log file
 ./run.sh >> "$CENTRAL_LOG_FILE" 2>&1 &
 RUNNER_PID=$!
-
-# If this is the main container process (PID 1), tail the central log file.
-if [ $$ -eq 1 ]; then
-  # Create the log file if it doesn't exist
-  touch "$CENTRAL_LOG_FILE"
-  # Tail the central log file and send its output to the container's stdout
-  tail -f "$CENTRAL_LOG_FILE" &
-fi
 
 wait $RUNNER_PID
 

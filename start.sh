@@ -4,6 +4,7 @@
 RUNNER_NAME="${NAME}"
 REPOSITORY="${REPO}"
 ACCESS_TOKEN="${TOKEN}"
+ACTION="start" # Default action
 
 # Parse named arguments
 while [ "$#" -gt 0 ]; do
@@ -11,10 +12,39 @@ while [ "$#" -gt 0 ]; do
     --name) RUNNER_NAME="$2"; shift 2;;
     --repo) REPOSITORY="$2"; shift 2;;
     --token) ACCESS_TOKEN="$2"; shift 2;;
+    --remove) ACTION="remove"; RUNNER_NAME="$2"; shift 2;;
     *) echo "Unknown option: $1" >&2; exit 1;;
   esac
 done
 
+# --- Action: Remove Runner ---
+if [ "$ACTION" = "remove" ]; then
+  if [ -z "$RUNNER_NAME" ] || [ -z "$REPOSITORY" ] || [ -z "$ACCESS_TOKEN" ]; then
+    echo "Error: --remove requires --name, --repo, and --token to be specified." >&2
+    exit 1
+  fi
+
+  RUNNER_DIR="/home/docker/actions-runner/$RUNNER_NAME"
+  if [ ! -d "$RUNNER_DIR" ]; then
+    echo "Error: Runner directory '$RUNNER_DIR' not found." >&2
+    exit 1
+  fi
+
+  echo "Removing runner $RUNNER_NAME..."
+  # A registration token is needed to authenticate the removal request
+  REG_TOKEN=$(curl -sS -X POST -H "Authorization: token $ACCESS_TOKEN" -H "Accept: application/vnd.github+json" https://api.github.com/repos/$REPOSITORY/actions/runners/registration-token | jq .token --raw-output)
+
+  cd "$RUNNER_DIR"
+  ./config.sh remove --unattended --token "$REG_TOKEN"
+
+  # Clean up the directory
+  cd ..
+  rm -rf "$RUNNER_NAME"
+  echo "Runner $RUNNER_NAME removed successfully."
+  exit 0
+fi
+
+# --- Action: Start Runner ---
 # Check for required variables
 if [ -z "$REPOSITORY" ] || [ -z "$ACCESS_TOKEN" ]; then
   echo "Error: --repo and --token arguments or REPO and TOKEN environment variables must be set." >&2
@@ -35,7 +65,7 @@ REG_TOKEN=$(curl -sS -X POST -H "Authorization: token $ACCESS_TOKEN" -H "Accept:
 cd /home/docker/actions-runner
 
 if [ -d "$RUNNER_NAME" ]; then
-  echo "Error: Runner '$RUNNER_NAME' already exists. Please use a different name." >&2
+  echo "Error: Runner '$RUNNER_NAME' already exists. Please use a different name or remove the existing runner." >&2
   exit 1
 fi
 

@@ -1,14 +1,14 @@
 #!/bin/bash
 
 # Initialize variables from environment
-WORKER_NAME="${NAME}"
+RUNNER_NAME="${NAME}"
 REPOSITORY="${REPO}"
 ACCESS_TOKEN="${TOKEN}"
 
 # Parse named arguments
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    --name) WORKER_NAME="$2"; shift 2;;
+    --name) RUNNER_NAME="$2"; shift 2;;
     --repo) REPOSITORY="$2"; shift 2;;
     --token) ACCESS_TOKEN="$2"; shift 2;;
     *) echo "Unknown option: $1" >&2; exit 1;;
@@ -22,11 +22,11 @@ if [ -z "$REPOSITORY" ] || [ -z "$ACCESS_TOKEN" ]; then
 fi
 
 # Fallback to HOSTNAME if name not set
-if [ -z "$WORKER_NAME" ]; then
-  WORKER_NAME=$HOSTNAME
+if [ -z "$RUNNER_NAME" ]; then
+  RUNNER_NAME=$HOSTNAME
 fi
 
-echo "WORKER_NAME: $WORKER_NAME"
+echo "RUNNER_NAME: $RUNNER_NAME"
 echo "REPOSITORY: $REPOSITORY"
 echo "ACCESS_TOKEN: (hidden)"
 
@@ -34,21 +34,36 @@ REG_TOKEN=$(curl -sS -X POST -H "Authorization: token $ACCESS_TOKEN" -H "Accept:
 
 cd /home/docker/actions-runner
 
-if [ -d "$WORKER_NAME" ]; then
-  echo "Error: Runner '$WORKER_NAME' already exists. Please use a different name." >&2
+if [ -d "$RUNNER_NAME" ]; then
+  echo "Error: Runner '$RUNNER_NAME' already exists. Please use a different name." >&2
   exit 1
 fi
 
-mkdir "$WORKER_NAME" && tar xzf ./actions-runner-linux-x64-*.tar.gz -C "./$WORKER_NAME" && cd "./$WORKER_NAME"
+mkdir "$RUNNER_NAME" && tar xzf ./actions-runner-linux-x64-*.tar.gz -C "./$RUNNER_NAME" && cd "./$RUNNER_NAME"
 
-./config.sh --name "$WORKER_NAME" --url "https://github.com/$REPOSITORY" --token "$REG_TOKEN"
+./config.sh --name "$RUNNER_NAME" --url "https://github.com/$REPOSITORY" --token "$REG_TOKEN"
 
 cleanup() {
-  echo "Removing runner..."
+  echo "Removing runner $RUNNER_NAME..."
   ./config.sh remove --unattended --token "$REG_TOKEN"
 }
 
 trap 'cleanup; exit 130' INT
 trap 'cleanup; exit 143' TERM
 
-./run.sh & wait $!
+# Central log file
+CENTRAL_LOG_FILE="/home/docker/actions-runner/runners.log"
+
+# Append all output to the central log file
+./run.sh >> "$CENTRAL_LOG_FILE" 2>&1 &
+RUNNER_PID=$!
+
+# If this is the main container process (PID 1), tail the central log file.
+if [ $$ -eq 1 ]; then
+  # Create the log file if it doesn't exist
+  touch "$CENTRAL_LOG_FILE"
+  # Tail the central log file and send its output to the container's stdout
+  tail -f "$CENTRAL_LOG_FILE" &
+fi
+
+wait $RUNNER_PID

@@ -102,13 +102,13 @@ REG_TOKEN=$(curl -sS -X POST -H "Authorization: token $ACCESS_TOKEN" -H "Accept:
 cd /home/docker/actions-runner
 
 if [ -d "$RUNNER_NAME" ]; then
-  log_message "Error: Runner '$RUNNER_NAME' already exists. Please use a different name or remove the existing runner."
-  exit 1
+  log_message "Runner '$RUNNER_NAME' already exists. Reusing existing runner."
+  cd "$RUNNER_NAME"
+else
+  log_message "Creating new runner '$RUNNER_NAME'."
+  mkdir "$RUNNER_NAME" && tar xzf ./actions-runner-linux-x64-*.tar.gz -C "./$RUNNER_NAME" && cd "./$RUNNER_NAME"
+  ./config.sh --name "$RUNNER_NAME" --url "https://github.com/$REPOSITORY" --token "$REG_TOKEN" >> "$CENTRAL_LOG_FILE" 2>&1
 fi
-
-mkdir "$RUNNER_NAME" && tar xzf ./actions-runner-linux-x64-*.tar.gz -C "./$RUNNER_NAME" && cd "./$RUNNER_NAME"
-
-./config.sh --name "$RUNNER_NAME" --url "https://github.com/$REPOSITORY" --token "$REG_TOKEN" >> "$CENTRAL_LOG_FILE" 2>&1
 
 cleanup() {
   log_message "Signal received. Removing runner $RUNNER_NAME..."

@@ -10,25 +10,46 @@ log_message() {
   echo "$@" >> "$CENTRAL_LOG_FILE"
 }
 
-# --- Supervisor Logic for PID 1 ---
-# If this is the main container process, it becomes a supervisor that never exits.
+# --- Supervisor Logic for PID 1 (Container Entrypoint) ---
 if [ $$ -eq 1 ]; then
-  log_message "Supervisor process (PID 1) started."
   # Create the log file if it doesn't exist
   touch "$CENTRAL_LOG_FILE"
+
+  log_message "Supervisor process (PID 1) started."
   # Tail the central log file to the container's stdout so 'docker logs' works
   tail -f "$CENTRAL_LOG_FILE" &
-  
-  # Check if an initial runner should be started.
-  # This is true if arguments were passed OR if the required ENV VARS are set.
-  if [ "$#" -gt 0 ] || [ -n "$NAME" ] || [ -n "$TOKEN" ] || [ -n "$TOKEN" ]; then
-    # Run this script again in the background, but not as PID 1.
-    # Pass along any arguments that were provided. The new process will inherit the environment variables.
-    ./start.sh "$@" &
+  TAIL_PID=$!
+
+  # Start any existing runner directories' run.sh
+  RUNNER_BASE_DIR="/home/docker/actions-runner"
+  FOUND_RUNNER=0
+  for DIR in "$RUNNER_BASE_DIR"/*/; do
+    # Skip if not a directory or if not configured (looking for run.sh file)
+    if [ -d "$DIR" ] && [ -x "${DIR}/run.sh" ]; then
+      FOUND_RUNNER=1
+      log_message "Starting existing runner at $DIR"
+      (
+        cd "$DIR"
+        ./run.sh >> "$CENTRAL_LOG_FILE" 2>&1 &
+      )
+    fi
+  done
+
+  # If no runners found, try initial setup if env/args provided
+  if [ $FOUND_RUNNER -eq 0 ]; then
+    log_message "No existing runners found."
+    if [ "$#" -gt 0 ] || [ -n "$NAME" ] || [ -n "$TOKEN" ]; then
+      log_message "Attempting initial runner setup with provided arguments/environment variables."
+      ./start.sh "$@" &
+    else
+      log_message "No runner arguments or environment variables provided; supervisor waiting indefinitely."
+    fi
   fi
-  
-  # Wait indefinitely for background jobs (like tail -f).
-  # This keeps the container alive.
+
+  # Signal handling: only terminate, do not unregister/remove runner!
+  trap 'log_message "Supervisor SIGTERM: Exiting."; kill 0; exit 143' TERM
+  trap 'log_message "Supervisor SIGINT: Exiting."; kill 0; exit 130' INT
+
   wait
   exit 0
 fi
@@ -56,7 +77,7 @@ done
 # --- Action: Remove Runner ---
 if [ "$ACTION" = "remove" ]; then
   if [ -z "$RUNNER_NAME" ] || [ -z "$REPOSITORY" ] || [ -z "$ACCESS_TOKEN" ]; then
-    log_message "Error: --remove requires --name, --repo, and --token to be specified."
+    log_message "Error: --remove requires --name, --repo, and --token."
     exit 1
   fi
 
@@ -68,7 +89,9 @@ if [ "$ACTION" = "remove" ]; then
 
   log_message "Removing runner $RUNNER_NAME..."
   # A registration token is needed to authenticate the removal request
-  REG_TOKEN=$(curl -sS -X POST -H "Authorization: token $ACCESS_TOKEN" -H "Accept: application/vnd.github+json" https://api.github.com/repos/$REPOSITORY/actions/runners/registration-token | jq .token --raw-output)
+  REG_TOKEN=$(curl -sS -X POST -H "Authorization: token $ACCESS_TOKEN" \
+    -H "Accept: application/vnd.github+json" \
+    https://api.github.com/repos/$REPOSITORY/actions/runners/registration-token | jq .token --raw-output)
 
   cd "$RUNNER_DIR"
   # This command may fail if the runner is already gone from GitHub, which is fine.
@@ -93,11 +116,15 @@ if [ -z "$RUNNER_NAME" ]; then
   RUNNER_NAME=$HOSTNAME
 fi
 
+RUNNER_DIR="/home/docker/actions-runner/$RUNNER_NAME"
+
 log_message "RUNNER_NAME: $RUNNER_NAME"
 log_message "REPOSITORY: $REPOSITORY"
 log_message "ACCESS_TOKEN: (hidden)"
 
-REG_TOKEN=$(curl -sS -X POST -H "Authorization: token $ACCESS_TOKEN" -H "Accept: application/vnd.github+json" https://api.github.com/repos/$REPOSITORY/actions/runners/registration-token | jq .token --raw-output)
+REG_TOKEN=$(curl -sS -X POST -H "Authorization: token $ACCESS_TOKEN" \
+    -H "Accept: application/vnd.github+json" \
+    https://api.github.com/repos/$REPOSITORY/actions/runners/registration-token | jq .token --raw-output)
 
 cd /home/docker/actions-runner
 
@@ -106,30 +133,16 @@ if [ -d "$RUNNER_NAME" ]; then
   cd "$RUNNER_NAME"
 else
   log_message "Creating new runner '$RUNNER_NAME'."
-  mkdir "$RUNNER_NAME" && tar xzf ./actions-runner-linux-x64-*.tar.gz -C "./$RUNNER_NAME" && cd "./$RUNNER_NAME"
+  mkdir "$RUNNER_NAME" && tar xzf ./actions-runner-linux-x64-*.tar.gz -C "$RUNNER_NAME" && cd "$RUNNER_NAME"
   ./config.sh --name "$RUNNER_NAME" --url "https://github.com/$REPOSITORY" --token "$REG_TOKEN" >> "$CENTRAL_LOG_FILE" 2>&1
 fi
 
-cleanup() {
-  log_message "Signal received. Removing runner $RUNNER_NAME..."
-  # This command may fail if the runner is already gone from GitHub, which is fine.
-  ./config.sh remove --unattended --token "$REG_TOKEN" >> "$CENTRAL_LOG_FILE" 2>&1 || true
-  cd /home/docker/actions-runner
-  rm -rf "$RUNNER_NAME"
-}
-
-trap 'cleanup; exit 130' INT
-trap 'cleanup; exit 143' TERM
-
-# Append all output to the central log file
+log_message "Executing run.sh for runner '$RUNNER_NAME'."
 ./run.sh >> "$CENTRAL_LOG_FILE" 2>&1 &
 RUNNER_PID=$!
 
+log_message "Wait for runner '$RUNNER_NAME' (RUNNER_PID: $RUNNER_PID)."
 wait $RUNNER_PID
 
-# --- Self-Cleaning Logic ---
-# This code runs after the runner process (run.sh) has exited.
-log_message "Runner process for '$RUNNER_NAME' has exited. Cleaning up..."
-cd /home/docker/actions-runner
-rm -rf "$RUNNER_NAME"
-log_message "Local directory for runner '$RUNNER_NAME' has been removed."
+log_message "Runner process for '$RUNNER_NAME' has exited."
+# Do not remove the runner or its config unless requested by --remove

@@ -99,7 +99,7 @@ if [ "$ACTION" = "remove" ]; then
 
   cd "$RUNNER_DIR"
   # This command may fail if the runner is already gone from GitHub, which is fine.
-  ./config.sh remove --unattended --token "$REG_TOKEN" >> "$CENTRAL_LOG_FILE" 2>&1 || true
+  ./config.sh remove --token "$REG_TOKEN" >> "$CENTRAL_LOG_FILE" 2>&1 || true
 
   # Clean up the directory
   cd ..
@@ -139,7 +139,8 @@ if [ -d "$RUNNER_NAME" ]; then
 else
   log_message "Creating new runner '$RUNNER_NAME'."
   mkdir "$RUNNER_NAME" && tar xzf ./actions-runner-linux-x64-*.tar.gz -C "$RUNNER_NAME" && cd "$RUNNER_NAME"
-  ./config.sh --disableupdate --name "$RUNNER_NAME" --url "https://github.com/$REPOSITORY" --token "$REG_TOKEN" >> "$CENTRAL_LOG_FILE" 2>&1
+  export ACTIONS_RUNNER_INPUT_TOKEN="$REG_TOKEN" # pass token via env variable to avoid showing in process list
+  ./config.sh --disableupdate --name "$RUNNER_NAME" --url "https://github.com/$REPOSITORY" >> "$CENTRAL_LOG_FILE" 2>&1
 fi
 
 log_message "Executing run.sh for runner '$RUNNER_NAME'."

@@ -1,7 +1,9 @@
 #!/bin/bash
 
+RUNNER_BASE_DIR="/home/docker/actions-runner"
+
 # --- Central Log File ---
-CENTRAL_LOG_FILE="/home/docker/actions-runner/runners.log"
+CENTRAL_LOG_FILE="$RUNNER_BASE_DIR/runners.log"
 
 # --- Logging Function ---
 # This function logs a message to the central log file AND per-runner log file (if set),
@@ -9,7 +11,7 @@ CENTRAL_LOG_FILE="/home/docker/actions-runner/runners.log"
 log_message() {
   TS="$(date +'%Y-%m-%d %H:%M:%SZ')"
   echo "$TS $@" >> "$CENTRAL_LOG_FILE"
-  if [ -n "$RUNNER_LOG_FILE" ]; then
+  if [ -n "$RUNNER_LOG_FILE" ] && [ -f "$RUNNER_LOG_FILE" ]; then
     echo "$TS $@" >> "$RUNNER_LOG_FILE"
   fi
 }
@@ -25,12 +27,12 @@ if [ $$ -eq 1 ]; then
   TAIL_PID=$!
 
   # Start any existing runner directories' run.sh
-  RUNNER_BASE_DIR="/home/docker/actions-runner"
   FOUND_RUNNER=0
   for DIR in "$RUNNER_BASE_DIR"/*/; do
     # Skip if not a directory or if not configured (looking for run.sh file)
     if [ -d "$DIR" ] && [ -x "${DIR}/run.sh" ]; then
       FOUND_RUNNER=1
+      export RUNNER_LOG_FILE="$RUNNER_BASE_DIR/$DIR/runner.log"
       log_message "Starting existing runner at $DIR"
       (
         cd "$DIR"
@@ -85,7 +87,7 @@ if [ "$ACTION" = "remove" ]; then
     exit 1
   fi
 
-  RUNNER_DIR="/home/docker/actions-runner/$RUNNER_NAME"
+  RUNNER_DIR="$RUNNER_BASE_DIR/$RUNNER_NAME"
   if [ ! -d "$RUNNER_DIR" ]; then
     log_message "Error: Runner directory '$RUNNER_DIR' not found."
     exit 1
@@ -120,8 +122,6 @@ if [ -z "$RUNNER_NAME" ]; then
   RUNNER_NAME=$HOSTNAME
 fi
 
-RUNNER_DIR="/home/docker/actions-runner/$RUNNER_NAME"
-export RUNNER_LOG_FILE="$RUNNER_DIR/runner.log"
 
 log_message "RUNNER_NAME: $RUNNER_NAME"
 log_message "REPOSITORY: $REPOSITORY"
@@ -131,7 +131,7 @@ REG_TOKEN=$(curl -sS -X POST -H "Authorization: token $ACCESS_TOKEN" \
     -H "Accept: application/vnd.github+json" \
     https://api.github.com/repos/$REPOSITORY/actions/runners/registration-token | jq .token --raw-output)
 
-cd /home/docker/actions-runner
+cd "$RUNNER_BASE_DIR"
 
 if [ -d "$RUNNER_NAME" ]; then
   log_message "Runner '$RUNNER_NAME' already exists. Reusing existing runner."
@@ -139,6 +139,7 @@ if [ -d "$RUNNER_NAME" ]; then
 else
   log_message "Creating new runner '$RUNNER_NAME'."
   mkdir "$RUNNER_NAME" && tar xzf ./actions-runner-linux-x64-*.tar.gz -C "$RUNNER_NAME" && cd "$RUNNER_NAME"
+  export RUNNER_LOG_FILE="$RUNNER_BASE_DIR/$RUNNER_NAME/runner.log"
   touch "$RUNNER_LOG_FILE"
   export ACTIONS_RUNNER_INPUT_TOKEN="$REG_TOKEN" # pass token via env variable to avoid showing in process list
   ./config.sh --disableupdate --name "$RUNNER_NAME" --url "https://github.com/$REPOSITORY" >> "$CENTRAL_LOG_FILE" 2>&1

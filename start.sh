@@ -7,7 +7,7 @@ CENTRAL_LOG_FILE="/home/docker/actions-runner/runners.log"
 # This function logs a message to the central log file AND per-runner log file (if set),
 # each line prefixed with a timestamp.
 log_message() {
-  TS="$(date +'%Y-%m-%d %H:%M:%S')"
+  TS="$(date +'%Y-%m-%d %H:%M:%SZ')"
   echo "$TS $@" >> "$CENTRAL_LOG_FILE"
   if [ -n "$RUNNER_LOG_FILE" ]; then
     echo "$TS $@" >> "$RUNNER_LOG_FILE"
@@ -139,6 +139,7 @@ if [ -d "$RUNNER_NAME" ]; then
 else
   log_message "Creating new runner '$RUNNER_NAME'."
   mkdir "$RUNNER_NAME" && tar xzf ./actions-runner-linux-x64-*.tar.gz -C "$RUNNER_NAME" && cd "$RUNNER_NAME"
+  touch "$RUNNER_LOG_FILE"
   export ACTIONS_RUNNER_INPUT_TOKEN="$REG_TOKEN" # pass token via env variable to avoid showing in process list
   ./config.sh --disableupdate --name "$RUNNER_NAME" --url "https://github.com/$REPOSITORY" >> "$CENTRAL_LOG_FILE" 2>&1
 fi

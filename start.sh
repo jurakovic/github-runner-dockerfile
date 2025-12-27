@@ -134,7 +134,7 @@ if [ -d "$RUNNER_NAME" ]; then
 else
   log_message "Creating new runner '$RUNNER_NAME'."
   mkdir "$RUNNER_NAME" && tar xzf ./actions-runner-linux-x64-*.tar.gz -C "$RUNNER_NAME" && cd "$RUNNER_NAME"
-  ./config.sh --name "$RUNNER_NAME" --url "https://github.com/$REPOSITORY" --token "$REG_TOKEN" >> "$CENTRAL_LOG_FILE" 2>&1
+  ./config.sh --disableupdate --name "$RUNNER_NAME" --url "https://github.com/$REPOSITORY" --token "$REG_TOKEN" >> "$CENTRAL_LOG_FILE" 2>&1
 fi
 
 log_message "Executing run.sh for runner '$RUNNER_NAME'."

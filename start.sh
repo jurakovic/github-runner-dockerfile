@@ -4,10 +4,14 @@
 CENTRAL_LOG_FILE="/home/docker/actions-runner/runners.log"
 
 # --- Logging Function ---
-# This function logs a message ONLY to the central log file.
-# The supervisor's 'tail -f' process is responsible for showing it in 'docker logs'.
+# This function logs a message to the central log file AND per-runner log file (if set),
+# each line prefixed with a timestamp.
 log_message() {
-  echo "$@" >> "$CENTRAL_LOG_FILE"
+  TS="$(date +'%Y-%m-%d %H:%M:%S')"
+  echo "$TS $@" >> "$CENTRAL_LOG_FILE"
+  if [ -n "$RUNNER_LOG_FILE" ]; then
+    echo "$TS $@" >> "$RUNNER_LOG_FILE"
+  fi
 }
 
 # --- Supervisor Logic for PID 1 (Container Entrypoint) ---
@@ -111,12 +115,13 @@ if [ -z "$REPOSITORY" ] || [ -z "$ACCESS_TOKEN" ]; then
   exit 1
 fi
 
-# Fallback to HOSTNAME if name not set
+ # Fallback to HOSTNAME if name not set
 if [ -z "$RUNNER_NAME" ]; then
   RUNNER_NAME=$HOSTNAME
 fi
 
 RUNNER_DIR="/home/docker/actions-runner/$RUNNER_NAME"
+export RUNNER_LOG_FILE="$RUNNER_DIR/runner.log"
 
 log_message "RUNNER_NAME: $RUNNER_NAME"
 log_message "REPOSITORY: $REPOSITORY"

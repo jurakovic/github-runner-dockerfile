@@ -122,6 +122,12 @@ if [ -z "$RUNNER_NAME" ]; then
   RUNNER_NAME=$HOSTNAME
 fi
 
+cd "$RUNNER_BASE_DIR"
+
+if [ -d "$RUNNER_NAME" ]; then
+  log_message "Runner '$RUNNER_NAME' already exists. Remove it first or set different name."
+  exit 0
+fi
 
 log_message "RUNNER_NAME: $RUNNER_NAME"
 log_message "REPOSITORY: $REPOSITORY"
@@ -131,19 +137,12 @@ REG_TOKEN=$(curl -sS -X POST -H "Authorization: token $ACCESS_TOKEN" \
     -H "Accept: application/vnd.github+json" \
     https://api.github.com/repos/$REPOSITORY/actions/runners/registration-token | jq .token --raw-output)
 
-cd "$RUNNER_BASE_DIR"
-
-if [ -d "$RUNNER_NAME" ]; then
-  log_message "Runner '$RUNNER_NAME' already exists. Reusing existing runner."
-  cd "$RUNNER_NAME"
-else
-  log_message "Creating new runner '$RUNNER_NAME'."
-  mkdir "$RUNNER_NAME" && tar xzf ./actions-runner-linux-x64-*.tar.gz -C "$RUNNER_NAME" && cd "$RUNNER_NAME"
-  export RUNNER_LOG_FILE="$RUNNER_BASE_DIR/$RUNNER_NAME/runner.log"
-  touch "$RUNNER_LOG_FILE"
-  export ACTIONS_RUNNER_INPUT_TOKEN="$REG_TOKEN" # pass token via env variable to avoid showing in process list
-  ./config.sh --disableupdate --name "$RUNNER_NAME" --url "https://github.com/$REPOSITORY" >> "$CENTRAL_LOG_FILE" 2>&1
-fi
+log_message "Creating new runner '$RUNNER_NAME'."
+mkdir "$RUNNER_NAME" && tar xzf ./actions-runner-linux-x64-*.tar.gz -C "$RUNNER_NAME" && cd "$RUNNER_NAME"
+export RUNNER_LOG_FILE="$RUNNER_BASE_DIR/$RUNNER_NAME/runner.log"
+touch "$RUNNER_LOG_FILE"
+export ACTIONS_RUNNER_INPUT_TOKEN="$REG_TOKEN" # pass token via env variable to avoid showing in process list
+./config.sh --disableupdate --name "$RUNNER_NAME" --url "https://github.com/$REPOSITORY" >> "$CENTRAL_LOG_FILE" 2>&1
 
 log_message "Executing run.sh for runner '$RUNNER_NAME'."
 ./run.sh >> "$CENTRAL_LOG_FILE" 2>&1 &

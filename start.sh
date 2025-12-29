@@ -60,13 +60,17 @@ start_existing_runners() {
 }
 
 supervisor_main() {
+  set +e  # PID 1 must not die easily
+
   touch "$CENTRAL_LOG_FILE"
   log_message "Supervisor process (PID 1) started."
 
   tail -f "$CENTRAL_LOG_FILE" &
   TAIL_PID=$!
 
-  if ! start_existing_runners; then
+  start_existing_runners
+
+  if [ $? -eq 0 ]; then
     log_message "No existing runners found."
 
     if [[ "$#" -gt 0 || -n "${NAME:-}" || -n "${TOKEN:-}" ]]; then
@@ -124,6 +128,7 @@ remove_runner() {
   reg_token="$(get_registration_token)"
 
   cd "$runner_dir"
+  # todo: find pid and kill if running?
   ./config.sh remove --token "$reg_token" >> "$CENTRAL_LOG_FILE" 2>&1 || true
 
   cd ..
@@ -136,6 +141,10 @@ remove_runner() {
 # -----------------------------
 create_runner() {
   require_vars REPOSITORY ACCESS_TOKEN
+
+  log_message "RUNNER_NAME: $RUNNER_NAME"
+  log_message "REPOSITORY: $REPOSITORY"
+  log_message "ACCESS_TOKEN: (hidden)"
 
   RUNNER_NAME="${RUNNER_NAME:-$HOSTNAME}"
   local runner_dir="$RUNNER_BASE_DIR/$RUNNER_NAME"
@@ -150,6 +159,7 @@ create_runner() {
   reg_token="$(get_registration_token)"
 
   mkdir "$runner_dir"
+  cd "$RUNNER_BASE_DIR"
   tar xzf ./actions-runner-linux-x64-*.tar.gz -C "$runner_dir"
   cd "$runner_dir"
 

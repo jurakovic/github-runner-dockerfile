@@ -95,7 +95,11 @@ parse_args() {
     case "$1" in
       --name) RUNNER_NAME="$2"; shift 2;;
       --repo) REPOSITORY="$2"; shift 2;;
-      --token) ACCESS_TOKEN="$2"; shift 2;;
+      #--token) ACCESS_TOKEN="$2"; shift 2;;
+      --token)
+        log_message "PAT must be passed as TOKEN environment variable"
+        exit 1
+        ;;
       --remove) ACTION="remove"; RUNNER_NAME="$2"; shift 2;;
       *)
         log_message "Unknown option: $1"
@@ -127,7 +131,7 @@ remove_runner() {
 
   cd ..
   rm -rf "$RUNNER_NAME"
-  log_message "Runner '$RUNNER_NAME' removed."
+  log_message "Runner '$RUNNER_NAME' removed. Runner process will exit automatically."
 }
 
 # -----------------------------

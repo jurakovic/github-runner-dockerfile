@@ -5,18 +5,12 @@ ARG RUNNER_VERSION="2.330.0"
 # Prevents installdependencies.sh from prompting the user and blocking the image creation
 ARG DEBIAN_FRONTEND=noninteractive
 
-RUN apt update -y && apt upgrade -y && useradd -m docker
-RUN apt install -y --no-install-recommends \
-    curl jq build-essential libssl-dev libffi-dev libicu-dev python3 python3-venv python3-dev python3-pip git unzip libasound2t64 pulseaudio \
-    inetutils-ping wget nodejs
+RUN useradd -m docker
 
-RUN YQ_DOWNLOAD_URL=$(curl -sL -H "Accept: application/vnd.github+json" \
-    https://api.github.com/repos/mikefarah/yq/releases/latest \
-      | jq ".assets[] | select(.name == \"yq_linux_amd64.tar.gz\")" \
-      | jq -r '.browser_download_url') \
-    && curl -s "${YQ_DOWNLOAD_URL}" -L -o /tmp/yq.tar.gz \
-    && tar -xzf /tmp/yq.tar.gz -C /tmp \
-    && mv "/tmp/yq_linux_amd64" /usr/local/bin/yq
+COPY install_tools.sh /tmp/install_tools.sh
+RUN chmod +x /tmp/install_tools.sh \
+    && /tmp/install_tools.sh \
+    && rm /tmp/install_tools.sh
 
 # download the runner archive but do not extract it into a dynamic directory
 RUN cd /home/docker && mkdir actions-runner && cd actions-runner \
@@ -30,8 +24,6 @@ RUN mkdir /tmp/runner-install \
     && rm -rf /tmp/runner-install
 
 COPY start.sh start.sh
-
-# make the script executable
 RUN chmod +x start.sh
 
 # since the config and run script for actions are not allowed to be run by root,

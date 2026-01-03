@@ -44,16 +44,11 @@ start_existing_runners() {
   local found=0
 
   for dir in "$RUNNER_BASE_DIR"/*/; do
-    [[ -x "${dir}/run.sh" ]] || continue
-
+    [[ -x "$dir/run.sh" ]] || continue
     found=1
-    export RUNNER_LOG_FILE="${dir}/runner.log"
-    log_message "Starting existing runner at $dir"
-
-    (
-      cd "$dir"
-      ./run.sh >> "$CENTRAL_LOG_FILE" 2>&1 &
-    )
+    local runner_name
+    runner_name="$(basename "$dir")"
+    run_runner "$runner_name"
   done
 
   return $found
@@ -128,7 +123,6 @@ remove_runner() {
   reg_token="$(get_registration_token)"
 
   cd "$runner_dir"
-  # todo: find pid and kill if running?
   ./config.sh remove --token "$reg_token" >> "$CENTRAL_LOG_FILE" 2>&1 || true
 
   cd ..
@@ -175,9 +169,19 @@ create_runner() {
 }
 
 run_runner() {
-  log_message "Starting runner '$RUNNER_NAME'."
-  ./run.sh >> "$CENTRAL_LOG_FILE" 2>&1 &
-  log_message "Runner '$RUNNER_NAME' started (PID $!)."
+  local runner_name="$1"
+  local runner_dir="$RUNNER_BASE_DIR/$runner_name"
+
+  export RUNNER_LOG_FILE="$runner_dir/runner.log"
+  touch "$RUNNER_LOG_FILE"
+
+  log_message "Starting runner '$runner_name'."
+
+  (
+    cd "$runner_dir"
+    ./run.sh >> "$CENTRAL_LOG_FILE" 2>&1 &
+    log_message "Runner '$runner_name' started (PID $!)."
+  )
 }
 
 # -----------------------------
@@ -192,7 +196,7 @@ main() {
   fi
 
   create_runner
-  run_runner
+  run_runner "$RUNNER_NAME"
 }
 
 # -----------------------------

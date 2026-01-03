@@ -177,12 +177,7 @@ create_runner() {
 run_runner() {
   log_message "Starting runner '$RUNNER_NAME'."
   ./run.sh >> "$CENTRAL_LOG_FILE" 2>&1 &
-  local pid=$!
-
-  log_message "Waiting for runner '$RUNNER_NAME' (PID: $pid)."
-  wait "$pid"
-
-  log_message "Runner '$RUNNER_NAME' exited."
+  log_message "Runner '$RUNNER_NAME' started (PID $!)."
 }
 
 # -----------------------------

@@ -160,6 +160,7 @@ create_runner() {
   cd "$RUNNER_BASE_DIR"
   tar xzf ./actions-runner-linux-x64-*.tar.gz -C "$runner_dir"
   cd "$runner_dir"
+  rm -rf "externals/node"*"_alpine" # prune alpine node runtimes to save some space
 
   export RUNNER_LOG_FILE="$runner_dir/runner.log"
   touch "$RUNNER_LOG_FILE"

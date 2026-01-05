@@ -12,12 +12,10 @@ RUN chmod +x /tmp/install_tools.sh \
     && /tmp/install_tools.sh \
     && rm /tmp/install_tools.sh
 
-# download the runner archive but do not extract it into a dynamic directory
+# download the runner and install dependencies; keep tar.gz for runtime use
 RUN cd /home/docker && mkdir actions-runner && cd actions-runner \
-    && curl -O -L https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz
-
-# extract to a temporary directory to run installdependencies.sh
-RUN mkdir /tmp/runner-install \
+    && curl -O -L https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz \
+    && mkdir /tmp/runner-install \
     && tar xzf /home/docker/actions-runner/actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz -C /tmp/runner-install \
     && chown -R docker /home/docker /tmp/runner-install \
     && /tmp/runner-install/bin/installdependencies.sh \

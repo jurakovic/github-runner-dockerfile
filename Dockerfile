@@ -10,9 +10,12 @@ RUN useradd -m docker
 COPY install_tools.sh /tmp/install_tools.sh
 RUN chmod +x /tmp/install_tools.sh \
     && /tmp/install_tools.sh \
-    && rm /tmp/install_tools.sh
+    && rm -rf /tmp/**
 
-# download the runner and install dependencies; keep tar.gz for runtime use
+# add node to PATH
+ENV PATH="$PATH:/usr/local/bin/node/bin"
+
+# download the runner and install dependencies; keep tar.gz for later use
 RUN cd /home/docker && mkdir actions-runner && cd actions-runner \
     && curl -O -L https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz \
     && mkdir /tmp/runner-install \

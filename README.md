@@ -3,14 +3,14 @@
 
 This repository contains a **Docker image for a self-hosted GitHub Actions runner**.
 
-> It is primarily built for my personal use, tailored to my workflows, tooling preferences, and infrastructure.  
-> That said, anyone is welcome to fork or clone this repository and adapt it to their own needs.
-
 The image is designed to:
 - Run one or more GitHub Actions runners inside a single container
 - Be reusable across repositories
 - Stay running as a “runner host”, with runners added or removed dynamically
 - Avoid unnecessary dependencies and keep behavior explicit and debuggable
+
+> It is primarily built for my personal use, tailored to my workflows, tooling preferences, and infrastructure.  
+> That said, anyone is welcome to fork or clone this repository and adapt it to their own needs.
 
 ---
 
@@ -32,12 +32,11 @@ The image is designed to:
 ## How it works (high level)
 
 - The container starts and waits idle
-- Runners are registered dynamically using `start.sh`
+- Runners are registered dynamically using [`start.sh`](start.sh)
 - Each runner lives in its own directory under the Actions runner base path
 - GitHub Actions runner binaries are downloaded as a tarball during image build
-- Node.js is provided by the runner bundle (Node 24), not by the OS
 
-For deeper technical details, see **Architecture.md**.
+For deeper technical details, see [Architecture.md](Architecture.md).
 
 ---
 
@@ -72,7 +71,7 @@ docker exec -d \
 
 * `TOKEN` is a **GitHub runner registration token**
 * `--name` is the runner name shown in GitHub
-* `--repo` can be a repository or organization
+* `--repo` is the repository to register the runner with
 
 ---
 
@@ -90,26 +89,6 @@ This:
 
 * Unregisters the runner from GitHub
 * Removes its local files
-
----
-
-## Secrets and security notes
-
-This setup uses **environment variables** for passing secrets (e.g. runner registration tokens).
-
-Important notes:
-
-* Environment variables are visible via `docker inspect`, `docker exec env`, and `/proc`
-* This is **normal and expected behavior**
-* Anyone with Docker access already has root-equivalent access
-
-This is considered acceptable for:
-
-* Personal servers
-* Single-user machines
-* Dedicated CI hosts
-
-If you require stronger isolation, Docker alone is not sufficient.
 
 ---
 
@@ -139,15 +118,12 @@ docker exec -it github-runner ps -eo pid,ppid,cmd --forest
 
 ---
 
-## Customization
+## Credits
 
-This image is intentionally opinionated but easy to modify.
+todo
 
-You may want to customize:
+---
 
-* Installed system tools (`install_tools.sh`)
-* Node.js handling
-* Runner registration logic
-* Cleanup or lifecycle behavior
+## References
 
-Forking this repository is encouraged if your needs differ.
+todo

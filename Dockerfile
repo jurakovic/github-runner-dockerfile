@@ -10,10 +10,11 @@ RUN useradd -m docker
 COPY install_tools.sh /tmp/install_tools.sh
 RUN chmod +x /tmp/install_tools.sh \
     && /tmp/install_tools.sh \
-    && rm -rf /tmp/**
+    && rm -rf /tmp/* \
+    && rm -rf /var/lib/apt/lists/*
 
 # add node to PATH
-ENV PATH="$PATH:/usr/local/bin/node/bin"
+ENV PATH="$PATH:/usr/local/lib/nodejs/bin"
 
 # download the runner and install dependencies; keep tar.gz for later use
 RUN cd /home/docker && mkdir actions-runner && cd actions-runner \
@@ -22,7 +23,8 @@ RUN cd /home/docker && mkdir actions-runner && cd actions-runner \
     && tar xzf /home/docker/actions-runner/actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz -C /tmp/runner-install \
     && chown -R docker /home/docker /tmp/runner-install \
     && /tmp/runner-install/bin/installdependencies.sh \
-    && rm -rf /tmp/runner-install
+    && rm -rf /tmp/runner-install \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY start.sh start.sh
 RUN chmod +x start.sh

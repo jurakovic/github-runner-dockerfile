@@ -14,24 +14,24 @@ Example:
 
 The tarball is:
 - Extracted into a temporary location
-- System dependencies installed via `installdependencies.sh`
+- System dependencies installed via [`installdependencies.sh`](https://github.com/actions/runner/blob/v2.330.0/src/Misc/layoutbin/installdependencies.sh)
 - Cleaned up afterward to reduce image size
 
 ---
 
 ## Node.js strategy
 
-### Why Node is needed at all
+#### Why Node is needed at all
 
 Many GitHub Actions are **JavaScript-based actions**, including:
-- `actions/checkout`
-- `actions/setup-node`
+- [`actions/checkout`](https://github.com/actions/checkout/blob/v6/action.yml#L107)
+- [`actions/setup-node`](https://github.com/actions/setup-node/blob/v6/action.yml#L40)
 - Many marketplace actions
 
 These actions **do not use system Node**.  
-They rely on the Node runtime **bundled with the GitHub Actions runner**.
+They [rely on the Node runtime](https://docs.github.com/en/actions/reference/workflows-and-actions/metadata-syntax#runsusing-for-javascript-actions) [bundled with the GitHub Actions runner](https://github.com/actions/runner/blob/v2.330.0/src/Misc/externals.sh).
 
-### Bundled Node versions
+#### Bundled Node versions
 
 The runner tarball includes multiple Node distributions under `externals/`:
 
@@ -55,17 +55,11 @@ Therefore:
 - `node20_alpine`
 - `node24_alpine`
 
-are safely removed to save ~300 MB of image size.
+are safely [removed](https://github.com/jurakovic/github-runner-dockerfile/blob/update/start.sh#L163) to save ~300 MB of image size.
 
----
+#### System Node
 
-### Why system Node is not used
-
-Although Node can be installed via `apt` or downloaded manually as in this image, it is intentionally **not relied upon**:
-
-- GitHub Actions explicitly uses bundled Node
-- JS actions expect a known, pinned Node runtime
-- Mixing system Node with runner Node can cause subtle failures
+System Node is [installed](https://github.com/jurakovic/github-runner-dockerfile/blob/update/install_tools.sh#L23-L27) for workflows that call [`node`](https://github.com/jurakovic/github-runner-dockerfile/blob/update/Dockerfile#L16) directly (scripts/tools), not for JS marketplace actions.
 
 ---
 

@@ -6,7 +6,7 @@ This repository contains a **Docker image for a self-hosted GitHub Actions runne
 The image is designed to:
 - Run one or more GitHub Actions runners inside a single container
 - Be reusable across repositories
-- Stay running as a “runner host”, with runners added or removed dynamically
+- Stay running as a "runner host", with runners added or removed dynamically
 - Avoid unnecessary dependencies and keep behavior explicit and debuggable
 
 > It is primarily built for my personal use, tailored to my workflows, tooling preferences, and infrastructure.  
@@ -16,13 +16,13 @@ The image is designed to:
 
 ## What this image is (and is not)
 
-### This image is
+#### This image is
 - A long-running container that hosts GitHub Actions runners
 - Intended for **self-hosted runners**
 - Managed via `docker run` + `docker exec`
 - Suitable for personal servers, homelabs, or dedicated CI machines
 
-### This image is not
+#### This image is not
 - A drop-in replacement for GitHub-hosted runners
 - A multi-tenant or hardened environment
 - Optimized for running untrusted workloads
@@ -42,7 +42,7 @@ For deeper technical details, see [Architecture.md](Architecture.md).
 
 ## Running the container
 
-### Start an empty runner container
+#### Start an empty runner container
 
 ```bash
 docker run -d \
@@ -59,19 +59,22 @@ This starts a container **without any registered runners**.
 
 All runner management is done via `docker exec` and `start.sh`.
 
-### Add a runner
+#### Add a runner
 
 ```bash
 docker exec -d \
-  -e TOKEN='<TOKEN>' \
+  -e TOKEN='<PAT>' \
   github-runner ./start.sh \
   --name 'runner-1' \
   --repo 'owner/repo'
 ```
 
-* `TOKEN` is a **GitHub runner registration token**
+* `TOKEN` is a GitHub Personal Access Token (PAT) / GitHub App token used to request a short-lived runner registration token via the [GitHub API](https://docs.github.com/en/rest/actions/self-hosted-runners?apiVersion=2022-11-28#create-a-registration-token-for-a-repository--fine-grained-access-tokens)
 * `--name` is the runner name shown in GitHub
 * `--repo` is the repository to register the runner with
+
+> The fine-grained token must have the following permission set:  
+> "Administration" repository permissions (write)
 
 ---
 
@@ -79,7 +82,7 @@ docker exec -d \
 
 ```bash
 docker exec -d \
-  -e TOKEN='<TOKEN>' \
+  -e TOKEN='<PAT>' \
   github-runner ./start.sh \
   --remove 'runner-1' \
   --repo 'owner/repo'
@@ -94,22 +97,21 @@ This:
 
 ## Debugging and inspection
 
-### Container logs
+#### Container logs
 
 ```bash
 docker logs github-runner -n 200
 ```
 
-### Runner-specific logs
+#### Runner-specific logs
 
 Each runner maintains its own log file.
 
 ```bash
-docker exec -it github-runner \
-  cat /home/docker/actions-runner/runner-1/runner.log
+docker exec -it github-runner cat /home/docker/actions-runner/runner-1/runner.log
 ```
 
-### Runtime inspection
+#### Runtime inspection
 
 ```bash
 docker exec -it github-runner printenv

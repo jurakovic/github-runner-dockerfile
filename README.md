@@ -34,9 +34,8 @@ The image is designed to:
 - The container starts and waits idle
 - Runners are registered dynamically using [`start.sh`](start.sh)
 - Each runner lives in its own directory under the Actions runner base path
-- GitHub Actions runner binaries are downloaded as a tarball during image build
 
-For deeper technical details, see [Architecture.md](Architecture.md).
+For deeper technical details, see [TECHNICAL.md](TECHNICAL.md).
 
 ---
 
@@ -48,6 +47,7 @@ For deeper technical details, see [Architecture.md](Architecture.md).
 docker run -d \
   --name github-runner \
   --restart always \
+  -v "${PWD}/github-runner:/home/docker/actions-runner" \
   ghcr.io/jurakovic/github-runner-dockerfile:2026-01-05.2
 ```
 
@@ -92,6 +92,21 @@ This:
 
 * Unregisters the runner from GitHub
 * Removes its local files
+
+### Build from source
+
+```bash
+git clone https://github.com/jurakovic/github-runner-dockerfile.git
+cd github-runner-dockerfile
+
+docker build -t github-runner:latest .
+
+docker run -d \
+  --name github-runner \
+  --restart always \
+  -v "${PWD}/github-runner:/home/docker/actions-runner" \
+  github-runner:latest
+```
 
 ---
 

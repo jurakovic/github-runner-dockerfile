@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-RUNNER_BASE_DIR="/home/docker/actions-runner"
+RUNNER_BASE_DIR="/home/runner/actions-runner"
 CENTRAL_LOG_FILE="$RUNNER_BASE_DIR/runners.log"
 
 # -----------------------------
@@ -158,9 +158,9 @@ create_runner() {
 
   mkdir "$runner_dir"
   cd "$RUNNER_BASE_DIR"
-  tar xzf ./actions-runner-linux-x64-*.tar.gz -C "$runner_dir"
+  tar xzf ./runner.tar.gz -C "$runner_dir"
   cd "$runner_dir"
-  rm -rf "externals/node"*"_alpine" # prune alpine node runtimes to save some space
+  rm -rf "externals/node"*"_alpine" # remove alpine node runtimes to save some space
 
   export RUNNER_LOG_FILE="$runner_dir/runner.log"
   touch "$RUNNER_LOG_FILE"

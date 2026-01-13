@@ -19,8 +19,8 @@ apt install -y --no-install-recommends \
     python3 python3-venv python3-dev python3-pip \
     wget
 
-# Install Node.js 24
-NODE_VERSION="24.12.0"
+# Install Node.js
+NODE_VERSION="24.13.0"
 NODE_DOWNLOAD_URL="https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.gz" \
     && curl -s "${NODE_DOWNLOAD_URL}" -L -o /tmp/node.tar.gz \
     && tar -xzf /tmp/node.tar.gz -C /tmp \

@@ -30,11 +30,21 @@ require_vars() {
 }
 
 get_registration_token() {
-  curl -sS -X POST \
-    -H "Authorization: token $ACCESS_TOKEN" \
-    -H "Accept: application/vnd.github+json" \
-    "https://api.github.com/repos/$REPOSITORY/actions/runners/registration-token" \
-  | jq -r .token
+  local token
+  token="$(
+    curl -fsSL -X POST \
+      -H "Authorization: token $ACCESS_TOKEN" \
+      -H "Accept: application/vnd.github+json" \
+      "https://api.github.com/repos/$REPOSITORY/actions/runners/registration-token" \
+    | jq -r '.token'
+  )"
+
+  if [[ -z "$token" || "$token" == "null" ]]; then
+    log_message "Error: Failed to obtain registration token (check TOKEN permissions and REPOSITORY='$REPOSITORY')."
+    exit 1
+  fi
+
+  echo "$token"
 }
 
 # -----------------------------
@@ -61,7 +71,6 @@ supervisor_main() {
   log_message "Supervisor process (PID 1) started."
 
   tail -f "$CENTRAL_LOG_FILE" &
-  TAIL_PID=$!
 
   start_existing_runners
 
@@ -125,9 +134,11 @@ remove_runner() {
   fi
 
   if [[ -z "${REPOSITORY:-}" ]]; then
-    REPOSITORY="$(jq -r '.gitHubUrl
-                        | sub("^https://github.com/"; "")
-                        | sub("/$"; "")' "$runner_dir/.runner")"
+    if [[ ! -f "$runner_dir/.runner" ]]; then
+      log_message "Error: '$runner_dir/.runner' not found; cannot infer repository. Pass --repo or set REPO env var."
+      exit 1
+    fi
+    REPOSITORY="$(jq -r '.gitHubUrl | sub("^https://github.com/"; "") | sub("/$"; "")' "$runner_dir/.runner")"
   fi
 
   if [[ -z "$REPOSITORY" || "$REPOSITORY" == "null" ]]; then
@@ -140,7 +151,7 @@ remove_runner() {
   log_message "REPOSITORY: $REPOSITORY"
   log_message "ACCESS_TOKEN: (hidden)"
 
-  require_vars RUNNER_NAME ACCESS_TOKEN
+  require_vars RUNNER_NAME REPOSITORY ACCESS_TOKEN
 
   log_message "Removing runner '$RUNNER_NAME'."
   local reg_token

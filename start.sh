@@ -95,12 +95,16 @@ parse_args() {
     case "$1" in
       --name) RUNNER_NAME="$2"; shift 2;;
       --repo) REPOSITORY="$2"; shift 2;;
-      #--token) ACCESS_TOKEN="$2"; shift 2;;
-      --token)
-        log_message "PAT must be passed as TOKEN environment variable"
-        exit 1
+      --remove)
+        ACTION="remove"
+        # optional runner name argument:
+        if [[ "${2:-}" != "" && "${2:-}" != --* ]]; then
+          RUNNER_NAME="$2"
+          shift 2
+        else
+          shift 1
+        fi
         ;;
-      --remove) ACTION="remove"; RUNNER_NAME="$2"; shift 2;;
       *)
         log_message "Unknown option: $1"
         exit 1
@@ -113,14 +117,30 @@ parse_args() {
 # Runner removal
 # -----------------------------
 remove_runner() {
-  require_vars RUNNER_NAME REPOSITORY ACCESS_TOKEN
-
   local runner_dir="$RUNNER_BASE_DIR/$RUNNER_NAME"
 
   if [[ ! -d "$runner_dir" ]]; then
     log_message "Error: Runner '$RUNNER_NAME' not found."
     exit 1
   fi
+
+  if [[ -z "${REPOSITORY:-}" ]]; then
+    REPOSITORY="$(jq -r '.gitHubUrl
+                        | sub("^https://github.com/"; "")
+                        | sub("/$"; "")' "$runner_dir/.runner")"
+  fi
+
+  if [[ -z "$REPOSITORY" || "$REPOSITORY" == "null" ]]; then
+    log_message "Error: Could not determine repository from $runner_dir/.runner"
+    exit 1
+  fi
+
+  log_message "ACTION: $ACTION"
+  log_message "RUNNER_NAME: $RUNNER_NAME"
+  log_message "REPOSITORY: $REPOSITORY"
+  log_message "ACCESS_TOKEN: (hidden)"
+
+  require_vars RUNNER_NAME ACCESS_TOKEN
 
   log_message "Removing runner '$RUNNER_NAME'."
   local reg_token
@@ -138,11 +158,12 @@ remove_runner() {
 # Runner creation & execution
 # -----------------------------
 create_runner() {
-  require_vars REPOSITORY ACCESS_TOKEN
-
+  log_message "ACTION: $ACTION"
   log_message "RUNNER_NAME: $RUNNER_NAME"
   log_message "REPOSITORY: $REPOSITORY"
   log_message "ACCESS_TOKEN: (hidden)"
+
+  require_vars REPOSITORY ACCESS_TOKEN
 
   RUNNER_NAME="${RUNNER_NAME:-$HOSTNAME}"
   local runner_dir="$RUNNER_BASE_DIR/$RUNNER_NAME"
